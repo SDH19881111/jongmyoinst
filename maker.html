@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>제례악 작곡가</title>
+<style>
+  :root {
+    --ink: #2b211a; --muted: #7a6b5c; --red: #a8372a; --red-d: #862a20;
+    --page: #efe6d6; --paper: #fbf7ef; --line: #e4d9c6; --line-beat: #d6c7ae; --line-bar: #b49c7a;
+    --bar-alt: #f4ede0; --label-w: 176px; --row: 28px; --prow: 42px; --cw: 32px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body { display: flex; flex-direction: column; height: 100dvh; background: var(--page); color: var(--ink);
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    -webkit-tap-highlight-color: transparent; }
+  button, input, select { font: inherit; color: inherit; }
+
+  /* 머리줄 */
+  header { display: flex; align-items: center; gap: 10px; padding: 8px 16px; background: var(--red); color: #fff;
+    flex-wrap: wrap; }
+  header a { color: #fff; text-decoration: none; border: 1px solid rgba(255,255,255,.5); border-radius: 8px;
+    padding: 5px 10px; font-size: .85rem; white-space: nowrap; }
+  header a:hover { background: rgba(255,255,255,.15); }
+  header h1 { margin: 0; font-size: 1.15rem; letter-spacing: -0.02em; white-space: nowrap; }
+  .credit { flex: 1; display: flex; gap: 8px; justify-content: flex-end; min-width: 0; }
+  .credit label { display: flex; align-items: center; gap: 6px; font-size: .8rem; opacity: .95; min-width: 0; }
+  .credit input { width: 11em; min-width: 0; border: 0; border-radius: 6px; padding: 5px 8px; background: #fff;
+    color: var(--ink); font-size: .9rem; }
+  .credit label.who input { width: 7em; }
+
+  /* 악보 */
+  #scroller { flex: 1; overflow: auto; position: relative; overscroll-behavior: contain; }
+  #sheet { position: relative; padding: 10px 0 12px; min-width: 100%; }
+  .sec { display: flex; margin-bottom: 8px; }
+  .sec:last-child { margin-bottom: 0; }
+  .lab { position: sticky; left: 0; z-index: 3; flex: none; width: var(--label-w); display: grid;
+    grid-template-columns: 1fr 44px; background: var(--page); padding-left: 10px; }
+  .thumb { grid-column: 1; position: relative; display: flex; align-items: center; justify-content: center;
+    cursor: pointer; border-radius: 10px; padding: 2px; transition: background .15s; }
+  .thumb:hover { background: rgba(255,255,255,.6); }
+  .thumb canvas { width: 100%; height: 100%; display: block; }
+  .thumb .name { position: absolute; left: 4px; bottom: 2px; font-size: .72rem; font-weight: 700;
+    background: rgba(251,247,239,.9); border-radius: 4px; padding: 0 4px; color: var(--ink); }
+  .note { grid-column: 2; display: flex; align-items: center; justify-content: center; gap: 2px;
+    font-size: .8rem; font-weight: 700; cursor: pointer; border-radius: 6px 0 0 6px; margin-left: 4px;
+    color: #fff; user-select: none; }
+  .note:hover { filter: brightness(1.08); }
+  .cells { display: grid; grid-template-columns: repeat(var(--steps), var(--cw)); touch-action: none;
+    user-select: none; -webkit-user-select: none; cursor: pointer; border-top: 1px solid var(--line-beat);
+    border-bottom: 1px solid var(--line-beat); background: var(--paper); }
+  .cell { position: relative; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .cell.alt { background: var(--bar-alt); }
+  .cell.beat0 { box-shadow: inset 1.5px 0 0 var(--line-bar); }
+  .cell.last { border-bottom: 0; }
+  .cell.on::after { content: attr(data-t); position: absolute; inset: 2px; border-radius: 5px; background: var(--c);
+    color: #fff; font-size: min(.72rem, calc(var(--cw) * .38)); font-weight: 700; display: flex;
+    align-items: center; justify-content: center; box-shadow: inset 0 -2px 0 rgba(0,0,0,.18); overflow: hidden; }
+  .perc .cell.on::after { inset: auto; left: 50%; top: 50%; width: min(calc(var(--cw) - 6px), calc(var(--prow) - 8px));
+    aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; }
+  .cell.now { background: #fbe7b8; }
+  .cell.on.hit::after { animation: hit .28s ease-out; }
+  .perc .cell.on.hit::after { animation: hitc .28s ease-out; }
+  @keyframes hit { 0% { transform: scale(1.25); filter: brightness(1.35); } 100% { transform: scale(1); } }
+  @keyframes hitc { 0% { transform: translate(-50%, -50%) scale(1.35); filter: brightness(1.35); }
+    100% { transform: translate(-50%, -50%) scale(1); } }
+  .thumb.bump canvas { animation: bump .3s ease-out; }
+  @keyframes bump { 0% { transform: scale(1.12) rotate(-2deg); } 100% { transform: none; } }
+  .barnum { display: flex; margin-bottom: 4px; }
+  .barnum .pad { position: sticky; left: 0; z-index: 3; flex: none; width: var(--label-w); background: var(--page); }
+  .barnum .nums { display: grid; grid-template-columns: repeat(var(--steps), var(--cw)); font-size: .7rem;
+    color: var(--muted); }
+  .barnum .nums span { padding-left: 4px; }
+
+  /* 아래 도구줄 */
+  footer { display: flex; align-items: center; gap: 10px 14px; padding: 10px 16px; background: #fff;
+    border-top: 1px solid var(--line-beat); flex-wrap: wrap; }
+  #playBtn { width: 64px; height: 64px; border-radius: 50%; border: 0; background: var(--red); color: #fff;
+    display: grid; place-items: center; cursor: pointer; box-shadow: 0 4px 12px rgba(168,55,42,.35); flex: none; }
+  #playBtn:hover { background: var(--red-d); }
+  #playBtn svg { width: 28px; height: 28px; }
+  .tool { display: flex; flex-direction: column; align-items: center; gap: 3px; border: 0; background: none;
+    cursor: pointer; font-size: .75rem; color: var(--muted); padding: 2px 4px; min-width: 56px; }
+  .tool .ic { width: 42px; height: 42px; border-radius: 50%; border: 1.5px solid var(--line-beat); display: grid;
+    place-items: center; background: #fff; transition: background .15s, border-color .15s; }
+  .tool .ic svg { width: 20px; height: 20px; }
+  .tool:hover .ic { border-color: var(--line-bar); }
+  .tool[aria-pressed="true"] .ic { background: var(--red); border-color: var(--red); color: #fff; }
+  .tool[aria-pressed="true"] { color: var(--red); font-weight: 700; }
+  .tool:disabled { opacity: .4; cursor: default; }
+  .grow { flex: 1; }
+  .field { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); }
+  .field b { color: var(--red); min-width: 2.2em; font-variant-numeric: tabular-nums; }
+  #tempo { width: 140px; accent-color: var(--red); }
+  select { border: 1.5px solid var(--line-beat); border-radius: 8px; padding: 5px 8px; background: #fff; }
+
+  #toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%) translateY(10px); opacity: 0;
+    background: rgba(43,33,26,.92); color: #fff; padding: 10px 16px; border-radius: 10px; font-size: .9rem;
+    pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); text-align: center; }
+  #toast.show { opacity: 1; transform: translateX(-50%); }
+
+  #tip { position: fixed; inset: 0; background: rgba(30,20,12,.5); display: none; align-items: center;
+    justify-content: center; padding: 16px; z-index: 20; }
+  #tip.show { display: flex; }
+  #tip .box { background: var(--paper); border-radius: 16px; padding: 22px 24px; width: min(100%, 460px);
+    line-height: 1.6; box-shadow: 0 20px 50px rgba(0,0,0,.35); }
+  #tip h2 { margin: 0 0 8px; color: var(--red); font-size: 1.2rem; }
+  #tip ul { margin: 0 0 14px; padding-left: 1.2em; word-break: keep-all; }
+  #tip button { border: 0; background: var(--red); color: #fff; padding: 8px 20px; border-radius: 999px;
+    font-weight: 700; cursor: pointer; }
+
+  @media (max-width: 720px) {
+    :root { --label-w: 112px; }
+    .credit { flex-basis: 100%; justify-content: flex-start; }
+    .credit input { width: 100%; }
+    #playBtn { width: 54px; height: 54px; }
+    .tool { min-width: 44px; }
+    .tool .ic { width: 36px; height: 36px; }
+    #tempo { width: 100px; }
+  }
+</style>
+</head>
+<body>
+  <header>
+    <a href="./">← 처음</a>
+    <h1>제례악 작곡가</h1>
+    <div class="credit">
+      <label>작품 이름 <input id="songName" maxlength="30" placeholder="나의 제례악"></label>
+      <label class="who">지은이 <input id="author" maxlength="12" placeholder="이름"></label>
+    </div>
+  </header>
+
+  <div id="scroller"><div id="sheet"></div></div>
+
+  <footer>
+    <button id="playBtn" type="button" aria-label="재생"></button>
+    <button class="tool" id="loopBtn" type="button" aria-pressed="true">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg></span>반복</button>
+    <button class="tool" id="undoBtn" type="button" disabled>
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></span>되돌리기</button>
+    <button class="tool" id="clearBtn" type="button">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/></svg></span>모두 지우기</button>
+    <button class="tool" id="exampleBtn" type="button">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg></span>예시 곡</button>
+    <button class="tool" id="tipBtn" type="button">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .9-1 1.6V14"/><path d="M12 17.5v.01"/></svg></span>도움말</button>
+    <span class="grow"></span>
+    <label class="field">빠르기 <input id="tempo" type="range" min="40" max="160" step="4" value="80"><b id="tempoVal">80</b></label>
+    <label class="field">길이 <select id="bars">
+      <option value="4">4마디</option><option value="8" selected>8마디</option>
+      <option value="12">12마디</option><option value="16">16마디</option>
+    </select></label>
+    <button class="tool" id="shareBtn" type="button">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></span>링크 복사</button>
+  </footer>
+
+  <div id="toast" role="status"></div>
+
+  <div id="tip" role="dialog" aria-modal="true" aria-labelledby="tipTitle">
+    <div class="box">
+      <h2 id="tipTitle">제례악 작곡가가 되어 볼까요?</h2>
+      <ul>
+        <li>칸을 누르면 소리가 들어가요. 다시 누르면 지워져요. 꾹 누른 채 끌면 여러 칸을 한 번에 채워요.</li>
+        <li>왼쪽 악기 그림이나 음 이름을 누르면 소리를 미리 들을 수 있어요.</li>
+        <li>제례악은 <b>축</b>을 쳐서 시작하고, 호랑이 모양 <b>어</b>의 등을 긁어서 끝내요. <b>박</b>은 시작과 끝을 알려 줘요.</li>
+        <li><b>편종</b>과 <b>편경</b>은 높이가 다른 일곱 음을 낼 수 있어요. 위로 갈수록 높은 소리예요.</li>
+      </ul>
+      <button type="button" id="tipClose">시작하기</button>
+    </div>
+  </div>
+
+  <script src="maker.js"></script>
+</body>
+</html>

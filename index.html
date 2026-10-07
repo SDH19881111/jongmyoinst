@@ -3,37 +3,52 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>종묘제례악 악기 연주</title>
+<title>종묘제례악 놀이터</title>
 <style>
-  :root { --bg: #1d1a17; --fg: #f3ede4; --muted: #b8ad9e; --accent: #b8432f; }
+  :root { --ink: #2b211a; --red: #a8372a; --paper: #fbf6ec; }
   * { box-sizing: border-box; }
-  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--fg);
-    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
-  body { display: flex; flex-direction: column; align-items: center; justify-content: center;
-    min-height: 100dvh; padding: 12px 16px; gap: 10px; overflow: hidden; }
-  header { display: flex; align-items: center; gap: 12px; width: min(100%, 1200px, (100dvh - 90px) * 4 / 3); }
-  h1 { font-size: 1.15rem; margin: 0; font-weight: 700; letter-spacing: -0.02em; flex: 1; }
-  button.icon { background: transparent; border: 1px solid #4a433b; color: var(--fg); border-radius: 8px;
-    padding: 6px 10px; font: inherit; font-size: 0.85rem; cursor: pointer; }
-  button.icon:hover { background: #2c2722; }
-  #stage { display: block; width: min(100%, 1200px, (100dvh - 90px) * 4 / 3); aspect-ratio: 4 / 3;
-    border-radius: 10px; background: #000; touch-action: none; user-select: none; -webkit-user-select: none;
-    -webkit-tap-highlight-color: transparent; box-shadow: 0 6px 30px rgba(0,0,0,.45); }
-  #hint { color: var(--muted); font-size: 0.85rem; min-height: 1.2em; text-align: center; }
-  kbd { font-family: inherit; border: 1px solid #5a5249; border-bottom-width: 2px; border-radius: 4px;
-    padding: 0 5px; font-size: 0.8rem; color: var(--fg); }
-  body.fs header, body.fs #hint { display: none; }
-  body.fs { padding: 0; }
-  body.fs #stage { width: min(100%, 100dvh * 4 / 3); border-radius: 0; box-shadow: none; }
+  html, body { margin: 0; min-height: 100%; }
+  body { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: clamp(16px, 4vh, 36px); padding: 24px 16px;
+    font-family: "Pretendard", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; color: var(--ink);
+    background: #c9b99c url(assets/bg-start.png) center / cover no-repeat; }
+  h1 { margin: 0; font-size: clamp(1.7rem, 5vw, 2.8rem); letter-spacing: -0.03em; color: #fff;
+    text-shadow: 0 2px 0 var(--red), 0 4px 18px rgba(0,0,0,.45); text-align: center; }
+  h1 small { display: block; font-size: 0.45em; font-weight: 600; letter-spacing: 0; margin-bottom: 4px;
+    text-shadow: 0 1px 6px rgba(0,0,0,.6); }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 20px;
+    width: min(100%, 860px); }
+  a.card { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+    padding: 20px 20px 24px; border-radius: 18px; text-decoration: none; color: inherit;
+    background: var(--paper); border: 3px solid #fff; box-shadow: 0 10px 30px rgba(40,25,10,.35);
+    transition: transform .15s, box-shadow .15s; }
+  a.card:hover, a.card:focus-visible { transform: translateY(-4px); box-shadow: 0 16px 36px rgba(40,25,10,.45); }
+  .pics { height: 150px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px; }
+  .pics img { height: 100%; width: auto; max-width: 100%; object-fit: contain; }
+  .pics.many img { height: 70%; max-width: 32%; }
+  .card h2 { margin: 0; font-size: 1.45rem; color: var(--red); }
+  .card p { margin: 0; line-height: 1.5; color: #5a4c3f; word-break: keep-all; }
+  .go { margin-top: 4px; padding: 8px 22px; border-radius: 999px; background: var(--red); color: #fff;
+    font-weight: 700; }
 </style>
 </head>
 <body>
-  <header>
-    <h1>종묘제례악 악기 연주</h1>
-    <button class="icon" id="fsBtn" type="button">전체 화면</button>
-  </header>
-  <canvas id="stage" aria-label="종묘제례악 악기 연주 무대"></canvas>
-  <div id="hint"></div>
-  <script src="app.js"></script>
+  <h1><small>여섯 악기로 만나는</small>종묘제례악 놀이터</h1>
+  <div class="cards">
+    <a class="card" href="play.html">
+      <div class="pics"><img src="assets/btn-jong.png" alt=""></div>
+      <h2>악기 연주해 보기</h2>
+      <p>편종·편경·축·박·어·절고를<br>하나씩 눌러서 소리를 들어 봐요.</p>
+      <span class="go">연주하러 가기</span>
+    </a>
+    <a class="card" href="maker.html">
+      <div class="pics many">
+        <img src="assets/btn-gyeong.png" alt=""><img src="assets/btn-eo.png" alt=""><img src="assets/btn-jeolgo.png" alt="">
+      </div>
+      <h2>제례악 작곡가 되기</h2>
+      <p>악보 칸을 눌러 소리를 찍고<br>나만의 제례악을 지어 연주해요.</p>
+      <span class="go">작곡하러 가기</span>
+    </a>
+  </div>
 </body>
 </html>
