@@ -164,6 +164,7 @@ function build() {
   });
   shownStep = -1;
   fit();
+  drawMini();
 }
 
 function el(tag, cls, text) {
@@ -206,19 +207,28 @@ function bump(secId) {
 function fit() {
   const css = getComputedStyle(document.documentElement);
   const labelW = parseFloat(css.getPropertyValue('--label-w')) || 176;
-  const units = 14 + 5 * 1.5;
-  const avail = scroller.clientHeight - 26 - 20 - 8 * (SECTIONS.length - 1);
-  const row = Math.max(20, Math.min(40, Math.floor(avail / units)));
+  // 타악기 줄은 조금 더 높게 두되, 화면이 낮으면(패드 가로 등) 덜 높여서 한 화면에 다 들어오게 한다
+  const avail = scroller.clientHeight - 16 - 22 - 6 * (SECTIONS.length - 1) - 2;
+  let perc = 1.5, row = Math.floor(avail / (14 + 5 * perc));
+  if (row < 26) { perc = 1.25; row = Math.floor(avail / (14 + 5 * perc)); }
+  row = Math.max(18, Math.min(40, row));
   const cw = Math.max(26, Math.min(72, Math.floor((scroller.clientWidth - labelW - 12) / steps())));
   const root = document.documentElement.style;
   root.setProperty('--row', row + 'px');
-  root.setProperty('--prow', Math.round(row * 1.5) + 'px');
+  root.setProperty('--prow', Math.round(row * perc) + 'px');
   root.setProperty('--cw', cw + 'px');
+  if (typeof updateNav === 'function') requestAnimationFrame(updateNav);
 }
 new ResizeObserver(fit).observe(scroller);
 
-// ---------- 칸 찍기 (누른 채 끌면 같은 동작을 이어서) ----------
-let paint = null; // { on, snap, changed }
+// ---------- 칸 찍기와 악보 옮기기 ----------
+// 그리기 모드: 한 손가락 = 칸 찍기(누른 채 끌면 같은 동작을 이어서), 두 손가락 = 악보 옮기기
+// 이동 모드: 한 손가락으로도 악보를 옮기고 칸은 찍히지 않는다
+let mode = 'draw';
+let paint = null;            // { on, snap, changed, last }
+let pan = null;              // { x, y, sl, st, moved, fingers }
+const pointers = new Map();  // pointerId → { x, y }
+
 function cellAt(x, y) {
   const e = document.elementFromPoint(x, y);
   return e && e.closest && e.closest('.cell');
@@ -231,6 +241,7 @@ function applyCell(cell) {
   song.data[r][c] = v;
   cell.classList.toggle('on', !!v);
   if (v) { playRow(r); bump(ROWS[r].sec.id); }
+  drawMini();
 }
 // 빠르게 끌면 pointermove 사이에 칸을 건너뛰므로 지난 칸과 이번 칸 사이를 이어서 채운다
 function paintTo(cell) {
@@ -243,25 +254,177 @@ function paintTo(cell) {
   }
   paint.last = [r, c];
 }
+// 두 번째 손가락이 닿으면 첫 손가락으로 찍은 칸은 없던 일로 한다
+function cancelPaint() {
+  if (paint.changed) {
+    song.data = paint.snap.data;
+    undoStack.pop();
+    $('undoBtn').disabled = !undoStack.length;
+    refreshCells();
+  }
+  paint = null;
+}
+function refreshCells() {
+  cellEls.forEach((row, r) => row.forEach((cell, c) => cell.classList.toggle('on', !!song.data[r][c])));
+  drawMini();
+}
+function centroid() {
+  let x = 0, y = 0;
+  pointers.forEach(p => { x += p.x; y += p.y; });
+  return { x: x / pointers.size, y: y / pointers.size };
+}
+// 손가락 수가 바뀔 때마다 기준점을 다시 잡아 화면이 튀지 않게 한다
+function anchorPan() {
+  const c = centroid();
+  pan = { x: c.x, y: c.y, sl: scroller.scrollLeft, st: scroller.scrollTop,
+    moved: pan ? pan.moved : false, fingers: Math.max(pan ? pan.fingers : 0, pointers.size) };
+}
+
 sheet.addEventListener('pointerdown', e => {
+  if (e.button > 0) return;
   const cell = e.target.closest('.cell');
-  if (!cell || e.button > 0) return;
-  e.preventDefault();
-  wake();
-  paint = { on: !song.data[+cell.dataset.r][+cell.dataset.c], snap: snapshot(), changed: false };
+  if (!cell && !pointers.size) return; // 왼쪽 악기 그림·음 이름은 따로 처리
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
   try { sheet.setPointerCapture(e.pointerId); } catch (err) {}
+  e.preventDefault();
+  if (pointers.size >= 2) {
+    if (paint) cancelPaint();
+    anchorPan();
+    return;
+  }
+  wake();
+  if (mode === 'move') { pan = null; anchorPan(); return; }
+  paint = { on: !song.data[+cell.dataset.r][+cell.dataset.c], snap: snapshot(), changed: false };
   applyCell(cell);
   paint.last = [+cell.dataset.r, +cell.dataset.c];
 });
 sheet.addEventListener('pointermove', e => {
-  if (!paint) return;
-  const cell = cellAt(e.clientX, e.clientY);
-  if (cell) paintTo(cell);
+  if (!pointers.has(e.pointerId)) return;
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pan) {
+    const c = centroid(), dx = c.x - pan.x, dy = c.y - pan.y;
+    if (Math.abs(dx) + Math.abs(dy) > 6) pan.moved = true;
+    scroller.scrollLeft = pan.sl - dx;
+    scroller.scrollTop = pan.st - dy;
+  } else if (paint) {
+    const cell = cellAt(e.clientX, e.clientY);
+    if (cell) paintTo(cell);
+  }
 });
-const endPaint = () => { if (paint && paint.changed) save(); paint = null; };
-sheet.addEventListener('pointerup', endPaint);
-sheet.addEventListener('pointercancel', endPaint);
+function endPointer(e) {
+  if (!pointers.delete(e.pointerId)) return;
+  if (pan) {
+    if (pointers.size) { anchorPan(); return; }
+    if (mode === 'move' && !pan.moved && pan.fingers === 1) {
+      toast('지금은 ✋ 이동 모드라 칸이 찍히지 않아요. ✏️ 그리기를 눌러 주세요.');
+      flashModeBtn();
+    }
+    pan = null;
+    return;
+  }
+  if (paint) { if (paint.changed) save(); paint = null; }
+}
+sheet.addEventListener('pointerup', endPointer);
+sheet.addEventListener('pointercancel', endPointer);
 sheet.addEventListener('contextmenu', e => e.preventDefault());
+
+// 마우스 휠: 세로로 넘칠 게 없으면 휠을 가로 이동으로 쓴다
+scroller.addEventListener('wheel', e => {
+  if (e.shiftKey || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+  if (scroller.scrollHeight > scroller.clientHeight + 2) return;
+  if (scroller.scrollWidth <= scroller.clientWidth + 2) return;
+  e.preventDefault();
+  scroller.scrollLeft += e.deltaY;
+}, { passive: false });
+
+function setMode(m) {
+  mode = m;
+  $('drawBtn').setAttribute('aria-pressed', String(m === 'draw'));
+  $('moveBtn').setAttribute('aria-pressed', String(m === 'move'));
+  document.body.classList.toggle('mode-move', m === 'move');
+}
+function flashModeBtn() {
+  const b = $('drawBtn');
+  b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash');
+}
+
+// ---------- 전체 미리보기 막대와 앞뒤 넘기기 ----------
+const mini = $('mini'), miniCv = mini.querySelector('canvas'), miniView = $('miniView'), miniHead = $('miniHead');
+const cwPx = () => parseFloat(document.documentElement.style.getPropertyValue('--cw')) || 32;
+const labelPx = () => (scroller.querySelector('.lab') || {}).offsetWidth || 0;
+const contentW = () => steps() * cwPx();
+const visibleW = () => Math.max(1, scroller.clientWidth - labelPx());
+
+function drawMini() {
+  const w = mini.clientWidth, h = mini.clientHeight;
+  if (!w || !h) return;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  miniCv.width = Math.round(w * dpr); miniCv.height = Math.round(h * dpr);
+  const ctx = miniCv.getContext('2d');
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const n = steps(), sw = w / n, rh = h / ROWS.length;
+  for (let b = 0; b < song.bars; b++) {
+    ctx.fillStyle = b % 2 ? '#f1e8d8' : '#fbf7ef';
+    ctx.fillRect(b * BEATS * sw, 0, BEATS * sw, h);
+  }
+  ROWS.forEach((row, r) => {
+    ctx.fillStyle = row.color;
+    for (let c = 0; c < n; c++) {
+      if (song.data[r][c]) ctx.fillRect(c * sw + 0.5, r * rh + 0.3, Math.max(1.5, sw - 1), Math.max(1.5, rh - 0.6));
+    }
+  });
+  updateNav();
+}
+
+function updateNav() {
+  const cw = contentW(), vw = visibleW(), barW = BEATS * cwPx();
+  const sl = Math.min(scroller.scrollLeft, Math.max(0, cw - vw));
+  const fits = cw <= vw + 2;
+  miniView.style.left = (sl / cw * 100) + '%';
+  miniView.style.width = (Math.min(1, vw / cw) * 100) + '%';
+  miniView.hidden = fits;
+  $('prevBtn').disabled = fits || sl <= 2;
+  $('nextBtn').disabled = fits || sl >= cw - vw - 2;
+  const first = Math.min(song.bars, Math.floor(sl / barW + 0.02) + 1);
+  const last = Math.min(song.bars, Math.max(first, Math.floor((sl + vw) / barW + 0.02)));
+  $('pageLabel').textContent = fits ? `전체 ${song.bars}마디` : `${first}~${last} / ${song.bars}마디`;
+}
+let navRaf = 0;
+scroller.addEventListener('scroll', () => {
+  if (!navRaf) navRaf = requestAnimationFrame(() => { navRaf = 0; updateNav(); });
+});
+
+// 보이는 만큼(마디 단위)씩 넘긴다
+function page(dir) {
+  const barW = BEATS * cwPx();
+  const per = Math.max(1, Math.floor(visibleW() / barW));
+  const cur = Math.round(scroller.scrollLeft / barW);
+  scroller.scrollTo({ left: Math.max(0, cur + dir * per) * barW, behavior: 'smooth' });
+}
+$('prevBtn').addEventListener('click', () => page(-1));
+$('nextBtn').addEventListener('click', () => page(1));
+
+let miniDrag = null;
+function miniScroll(e) {
+  const r = mini.getBoundingClientRect();
+  const f = (e.clientX - r.left) / r.width - miniDrag;
+  scroller.scrollLeft = f * contentW();
+}
+mini.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  const r = mini.getBoundingClientRect();
+  const f = (e.clientX - r.left) / r.width;
+  const vr = miniView.getBoundingClientRect();
+  const left = (vr.left - r.left) / r.width, width = vr.width / r.width;
+  // 상자를 잡으면 잡은 자리를 유지하고, 바깥을 누르면 그곳이 가운데 오게 옮긴다
+  miniDrag = !miniView.hidden && f >= left && f <= left + width ? f - left : width / 2;
+  try { mini.setPointerCapture(e.pointerId); } catch (err) {}
+  miniScroll(e);
+});
+mini.addEventListener('pointermove', e => { if (miniDrag != null) miniScroll(e); });
+mini.addEventListener('pointerup', () => { miniDrag = null; });
+mini.addEventListener('pointercancel', () => { miniDrag = null; });
+new ResizeObserver(drawMini).observe(mini);
 
 // ---------- 되돌리기 ----------
 const undoStack = [];
@@ -328,7 +491,10 @@ function setPlayIcon() {
 function showStep(s) {
   if (shownStep >= 0 && colCells[shownStep]) colCells[shownStep].forEach(c => c.classList.remove('now'));
   shownStep = s;
+  miniHead.hidden = s < 0;
   if (s < 0 || !colCells[s]) return;
+  miniHead.style.left = (s / steps() * 100) + '%';
+  miniHead.style.width = (100 / steps()) + '%';
   const hitSecs = new Set();
   colCells[s].forEach(c => {
     c.classList.add('now');
@@ -459,6 +625,11 @@ $('bars').addEventListener('change', e => {
   save();
 });
 $('undoBtn').addEventListener('click', undo);
+$('drawBtn').addEventListener('click', () => setMode('draw'));
+$('moveBtn').addEventListener('click', () => {
+  setMode('move');
+  toast('✋ 이동 모드: 손가락으로 밀어서 악보를 옮겨요. 칸은 찍히지 않아요.');
+});
 $('clearBtn').addEventListener('click', () => {
   if (!song.data.some(a => a.some(Boolean))) return;
   pushUndo();

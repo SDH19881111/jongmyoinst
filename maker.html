@@ -32,8 +32,8 @@
 
   /* 악보 */
   #scroller { flex: 1; overflow: auto; position: relative; overscroll-behavior: contain; }
-  #sheet { position: relative; padding: 10px 0 12px; min-width: 100%; }
-  .sec { display: flex; margin-bottom: 8px; }
+  #sheet { position: relative; padding: 8px 0; min-width: 100%; }
+  .sec { display: flex; margin-bottom: 6px; }
   .sec:last-child { margin-bottom: 0; }
   .lab { position: sticky; left: 0; z-index: 3; flex: none; width: var(--label-w); display: grid;
     grid-template-columns: 1fr 44px; background: var(--page); padding-left: 10px; }
@@ -90,12 +90,34 @@
   .tool[aria-pressed="true"] { color: var(--red); font-weight: 700; }
   .tool:disabled { opacity: .4; cursor: default; }
   .grow { flex: 1; }
+  .modes { display: flex; gap: 2px; padding: 3px; border-radius: 14px; background: var(--page); }
+  .tool.flash .ic { animation: flash .5s ease-out 2; }
+  @keyframes flash { 50% { transform: scale(1.18); box-shadow: 0 0 0 6px rgba(168,55,42,.25); } }
+  body.mode-move .cells { cursor: grab; }
+  body.mode-move .cells:active { cursor: grabbing; }
+
+  /* 전체 미리보기 막대 */
+  #nav { display: flex; align-items: center; gap: 8px; padding: 6px 16px 6px 10px; background: var(--page);
+    border-top: 1px solid var(--line-beat); }
+  .pager { flex: none; width: calc(var(--label-w) - 18px); display: flex; align-items: center; gap: 6px; }
+  #pageLabel { font-size: .78rem; color: var(--muted); font-weight: 700; line-height: 1.2; word-break: keep-all; }
+  .pg { flex: none; width: 44px; height: 44px; border-radius: 12px; border: 1.5px solid var(--line-bar);
+    background: #fff; color: var(--red); display: grid; place-items: center; cursor: pointer; }
+  .pg svg { width: 22px; height: 22px; }
+  .pg:hover:not(:disabled) { background: #fdf3e6; }
+  .pg:disabled { opacity: .35; cursor: default; }
+  #mini { position: relative; flex: 1; height: 44px; border-radius: 8px; overflow: hidden; cursor: pointer;
+    border: 1.5px solid var(--line-beat); touch-action: none; background: var(--paper); }
+  #mini canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  #miniView { position: absolute; top: 0; bottom: 0; border: 2.5px solid var(--red); border-radius: 6px;
+    background: rgba(168,55,42,.08); box-shadow: 0 0 0 999px rgba(80,60,40,.18); cursor: grab; }
+  #miniHead { position: absolute; top: 0; bottom: 0; background: rgba(240,170,40,.55); }
   .field { display: flex; align-items: center; gap: 8px; font-size: .85rem; color: var(--muted); }
   .field b { color: var(--red); min-width: 2.2em; font-variant-numeric: tabular-nums; }
   #tempo { width: 140px; accent-color: var(--red); }
   select { border: 1.5px solid var(--line-beat); border-radius: 8px; padding: 5px 8px; background: #fff; }
 
-  #toast { position: fixed; left: 50%; bottom: 100px; transform: translateX(-50%) translateY(10px); opacity: 0;
+  #toast { position: fixed; left: 50%; top: 64px; z-index: 10; transform: translateX(-50%) translateY(10px); opacity: 0;
     background: rgba(43,33,26,.92); color: #fff; padding: 10px 16px; border-radius: 10px; font-size: .9rem;
     pointer-events: none; transition: opacity .2s, transform .2s; max-width: calc(100% - 32px); text-align: center; }
   #toast.show { opacity: 1; transform: translateX(-50%); }
@@ -110,6 +132,15 @@
   #tip button { border: 0; background: var(--red); color: #fff; padding: 8px 20px; border-radius: 999px;
     font-weight: 700; cursor: pointer; }
 
+  /* 패드 가로 화면: 도구줄을 한 줄에 담는다 */
+  @media (max-width: 1180px) {
+    footer { gap: 8px; padding: 8px 12px; }
+    #playBtn { width: 56px; height: 56px; }
+    .tool { min-width: 46px; font-size: .7rem; padding: 2px; }
+    .tool .ic { width: 38px; height: 38px; }
+    .field { gap: 6px; font-size: .8rem; }
+    #tempo { width: 96px; }
+  }
   @media (max-width: 720px) {
     :root { --label-w: 112px; }
     .credit { flex-basis: 100%; justify-content: flex-start; }
@@ -133,8 +164,25 @@
 
   <div id="scroller"><div id="sheet"></div></div>
 
+  <div id="nav">
+    <div class="pager">
+      <button class="pg" id="prevBtn" type="button" aria-label="앞 마디로">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+      <span id="pageLabel"></span>
+    </div>
+    <div id="mini" title="눌러서 그 자리로 옮기기"><canvas></canvas><div id="miniHead" hidden></div><div id="miniView"></div></div>
+    <button class="pg" id="nextBtn" type="button" aria-label="뒤 마디로">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
+  </div>
+
   <footer>
     <button id="playBtn" type="button" aria-label="재생"></button>
+    <div class="modes" role="group" aria-label="손가락 모드">
+      <button class="tool" id="drawBtn" type="button" aria-pressed="true">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l1-4L16.5 4.5a2.1 2.1 0 0 1 3 3L8 19z"/><path d="M14.5 6.5l3 3"/></svg></span>그리기</button>
+      <button class="tool" id="moveBtn" type="button" aria-pressed="false">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V5.5a1.5 1.5 0 0 1 3 0V12"/><path d="M11 11.5v-2a1.5 1.5 0 0 1 3 0V12"/><path d="M14 10.5a1.5 1.5 0 0 1 3 0V12"/><path d="M17 11.5a1.5 1.5 0 0 1 3 0V16a6 6 0 0 1-6 6h-2a6 6 0 0 1-5-2.7L4.3 15a1.5 1.5 0 0 1 2.4-1.8L8 15"/></svg></span>이동</button>
+    </div>
     <button class="tool" id="loopBtn" type="button" aria-pressed="true">
       <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 2l4 4-4 4"/><path d="M3 11V9a3 3 0 0 1 3-3h15"/><path d="M7 22l-4-4 4-4"/><path d="M21 13v2a3 3 0 0 1-3 3H3"/></svg></span>반복</button>
     <button class="tool" id="undoBtn" type="button" disabled>
@@ -162,6 +210,7 @@
       <h2 id="tipTitle">제례악 작곡가가 되어 볼까요?</h2>
       <ul>
         <li>칸을 누르면 소리가 들어가요. 다시 누르면 지워져요. 꾹 누른 채 끌면 여러 칸을 한 번에 채워요.</li>
+        <li>악보를 옆으로 옮길 때는 아래 <b>◀ ▶</b> 버튼이나 미리보기 막대를 쓰거나, <b>손가락 두 개</b>로 밀어요. <b>✋ 이동</b>을 누르면 한 손가락으로도 옮겨져요.</li>
         <li>왼쪽 악기 그림이나 음 이름을 누르면 소리를 미리 들을 수 있어요.</li>
         <li>제례악은 <b>축</b>을 쳐서 시작하고, 호랑이 모양 <b>어</b>의 등을 긁어서 끝내요. <b>박</b>은 시작과 끝을 알려 줘요.</li>
         <li><b>편종</b>과 <b>편경</b>은 높이가 다른 일곱 음을 낼 수 있어요. 위로 갈수록 높은 소리예요.</li>
